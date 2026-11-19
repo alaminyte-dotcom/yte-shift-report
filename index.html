@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#081526">
+    <title>YTE | Standardized Network & Shift Report System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .unit-report-card, .avoid-break { page-break-inside: avoid; break-inside: avoid; }
+        @media print {
+            @page { size: A4 portrait; margin: 8mm; }
+            html, body {
+                background: #ffffff !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            header, #apiModal, #formColumn, #previewTopBar, .no-print {
+                display: none !important;
+            }
+            main {
+                display: block !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            #previewColumn {
+                display: block !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            #pdfContent {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-height: auto !important;
+                margin: 0 !important;
+                padding: 16px !important;
+                box-shadow: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
+
+    <header class="bg-[#081526] text-white py-3.5 px-6 shadow-md no-print border-b-2 border-[#f97316]">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <img src="logo.png" alt="YTE Logo" class="h-10 bg-white px-2 py-1 rounded" onerror="this.style.display='none'">
+                <div>
+                    <h1 class="text-base font-bold tracking-tight text-white">YTE Control Room — Standardized Report Portal (v4.6)</h1>
+                    <p class="text-[11px] text-sky-300">Shift Handover & Regular Network Status Generator</p>
+                </div>
+            </div>
+            <button type="button" id="openApiBtn" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition cursor-pointer">
+                <span>⚙️</span>
+                <span id="apiStatusText">Set AI Key</span>
+            </button>
+        </div>
+    </header>
+
+    <div id="apiModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 no-print">
+        <div class="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <h3 class="text-lg font-bold text-slate-900">Gemini AI Key Configuration</h3>
+            <p class="text-xs text-slate-600">Paste your Google AI Studio API Key below (starts with AIzaSy...).</p>
+            <input type="text" id="apiKeyInput" placeholder="AIzaSy..." class="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-mono">
+            <div class="flex justify-end space-x-2">
+                <button type="button" id="cancelApiBtn" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer">Cancel</button>
+                <button type="button" id="saveApiBtn" class="px-4 py-2 text-xs font-bold bg-[#081526] text-white rounded-lg hover:bg-slate-800 cursor-pointer">Save Key</button>
+            </div>
+        </div>
+    </div>
+
+    <main class="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-8 print-full">
+        
+        <div id="formColumn" class="lg:col-span-5 bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-5 no-print h-fit">
+            <div class="border-b pb-3 flex justify-between items-center">
+                <div>
+                    <h2 class="text-base font-bold text-slate-900">1. Report Purpose & Header</h2>
+                    <p class="text-xs text-slate-500">Select report type or edit the heading.</p>
+                </div>
+                <span class="text-[10px] font-bold bg-orange-100 text-orange-700 px-2 py-0.5 rounded">REQUIRED</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Report Purpose</label>
+                    <select id="reportPurpose" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold bg-slate-50">
+                        <option value="SHIFT HANDOVER REPORT">Shift Handover Report</option>
+                        <option value="REGULAR NETWORK STATUS UPDATE">Regular Status Update</option>
+                        <option value="HOURLY MONITORING UPDATE">Hourly Monitoring Update</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Editable Report Heading</label>
+                    <input type="text" id="customHeading" value="SHIFT HANDOVER REPORT" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-bold text-[#081526]">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Shift / Interval</label>
+                    <select id="shiftType" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-medium">
+                        <option value="MORNING SHIFT -> EVENING SHIFT">Morning -> Evening</option>
+                        <option value="EVENING SHIFT -> NIGHT SHIFT">Evening -> Night</option>
+                        <option value="NIGHT SHIFT -> MORNING SHIFT">Night -> Morning</option>
+                        <option value="MID-SHIFT REGULAR UPDATE">Mid-Shift Regular Update</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Reporting Date & Time</label>
+                    <input type="datetime-local" id="reportDateTime" class="w-full border border-slate-300 rounded-lg p-2 text-xs">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Supervisor Name</label>
+                    <input type="text" id="preparedBy" placeholder="e.g., Hafijur Rahman" class="w-full border border-slate-300 rounded-lg p-2 text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Prepared For (Client)</label>
+                    <input type="text" id="preparedFor" value="TXP Protect Operations" class="w-full border border-slate-300 rounded-lg p-2 text-xs">
+                </div>
+            </div>
+
+            <div class="border-t pt-4">
+                <div class="flex justify-between items-center mb-3">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900">2. Unit Connectivity & Issues</h3>
+                        <p class="text-[11px] text-slate-500">Order: Current Status -> Observation -> Action -> Notification</p>
+                    </div>
+                    <button type="button" id="addUnitBtn" class="bg-[#081526] hover:bg-slate-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition cursor-pointer shadow-xs">+ Add Unit</button>
+                </div>
+                <div id="unitsContainer" class="space-y-4"></div>
+            </div>
+
+            <div class="border-t pt-4">
+                <label class="block text-xs font-bold text-slate-900 mb-1">3. Warehouse / Standby Units</label>
+                <input type="text" id="warehouseUnits" placeholder="e.g., MSU-10, MSU-13, MSU-16, MSU-36, MSU-41" class="w-full border border-slate-300 rounded-lg p-2 text-xs">
+            </div>
+
+            <div class="border-t pt-4 space-y-2">
+                <div class="flex justify-between items-center">
+                    <label class="block text-xs font-bold text-slate-900">4. Overall Network & Suspicious Activity</label>
+                    <select id="securityStatus" class="border border-slate-300 rounded p-1 text-[11px] font-bold bg-slate-50">
+                        <option value="NORMAL">All Normal (No Suspicious Activity)</option>
+                        <option value="SUSPICIOUS">Suspicious Activity / Alert</option>
+                    </select>
+                </div>
+                <textarea id="generalSummary" rows="3" class="w-full border border-slate-300 rounded-lg p-2 text-xs">All remaining active MST/MSU units are online and operating normally. No suspicious activity or security breaches observed across monitored sites during this period. Continuous live monitoring is ongoing.</textarea>
+            </div>
+
+            <div id="aiFeedbackBox" class="hidden text-xs p-2.5 rounded-lg border"></div>
+
+            <button type="button" id="aiBtn" class="w-full bg-gradient-to-r from-sky-600 to-indigo-700 hover:from-sky-700 hover:to-indigo-800 text-white font-bold py-2.5 rounded-lg text-xs shadow-md flex items-center justify-center space-x-2 transition cursor-pointer">
+                <span>AI Grammar & English Sentence Correction</span>
+            </button>
+
+            <div class="bg-orange-50 p-4 rounded-xl border border-orange-200 space-y-3">
+                <label class="flex items-start space-x-2 cursor-pointer">
+                    <input type="checkbox" id="approveCheck" class="mt-0.5 rounded text-orange-600">
+                    <span class="text-xs text-slate-800 font-medium">I verify that all details, camera counts, actions taken, and security notes are accurate.</span>
+                </label>
+                <button type="button" id="downloadBtn" disabled class="w-full bg-slate-400 text-white font-bold py-2.5 rounded-lg text-xs transition cursor-not-allowed">
+                    Approve & Save Official PDF
+                </button>
+            </div>
+        </div>
+
+        <div id="previewColumn" class="lg:col-span-7 print-full">
+            <div id="previewTopBar" class="flex justify-between items-center mb-2 no-print">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Official Standardized Document Preview (A4)</span>
+                <span class="text-xs text-emerald-600 font-bold">Constant Master Design</span>
+            </div>
+
+            <div id="pdfContent" class="bg-white shadow-xl mx-auto p-7 text-slate-800 border-t-8 border-[#f97316] print-full" style="width: 100%; max-width: 794px; min-height: 1080px;">
+                
+                <div class="border-b-2 border-[#081526] pb-4 mb-5 flex justify-between items-center">
+                    <div class="flex items-center space-x-4">
+                        <img src="logo.png" alt="YTE Logo" class="h-14 object-contain" onerror="this.style.display='none'">
+                        <div>
+                            <p class="text-[10px] font-extrabold tracking-widest text-[#f97316] uppercase">Remote Surveillance & Network Operations</p>
+                            <h1 id="prevMainHeading" class="text-xl font-extrabold text-[#081526] tracking-tight uppercase">SHIFT HANDOVER REPORT</h1>
+                            <p id="prevShift" class="text-xs font-bold text-sky-700 mt-0.5">MORNING SHIFT -> EVENING SHIFT</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span id="prevBadgeType" class="bg-[#081526] text-white text-[10px] font-bold px-2.5 py-1 rounded uppercase tracking-wider">Shift Handover</span>
+                        <p id="prevDate" class="text-sm font-extrabold text-slate-900 mt-1.5">19 November 2026</p>
+                        <p id="prevMeta" class="text-[11px] text-slate-600 font-medium">For: TXP Protect Operations</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-4 gap-3 mb-5">
+                    <div class="bg-red-50 border border-red-200 p-2.5 rounded-lg">
+                        <p class="text-[9px] font-bold text-red-700 uppercase">Offline Units</p>
+                        <p id="kpiOfflineCount" class="text-xl font-extrabold text-red-700 mt-0.5">00</p>
+                    </div>
+                    <div class="bg-amber-50 border border-amber-200 p-2.5 rounded-lg">
+                        <p class="text-[9px] font-bold text-amber-700 uppercase">Lagging / Issue</p>
+                        <p id="kpiLaggingCount" class="text-xl font-extrabold text-amber-700 mt-0.5">00</p>
+                    </div>
+                    <div class="bg-slate-50 border border-slate-200 p-2.5 rounded-lg">
+                        <p class="text-[9px] font-bold text-slate-600 uppercase">Warehouse</p>
+                        <p id="kpiWarehouseCount" class="text-xl font-extrabold text-[#081526] mt-0.5">00</p>
+                    </div>
+                    <div class="bg-orange-50 border border-orange-200 p-2.5 rounded-lg">
+                        <p class="text-[9px] font-bold text-orange-700 uppercase">Longest Outage</p>
+                        <p id="kpiLongestOutage" class="text-base font-extrabold text-orange-800 mt-1">0h 0m</p>
+                    </div>
+                </div>
+
+                <div class="mb-6 avoid-break">
+                    <div class="flex items-center space-x-2 mb-2.5">
+                        <span class="bg-[#081526] text-white text-[10px] font-bold px-2 py-0.5 rounded">01</span>
+                        <h2 class="text-xs font-extrabold uppercase tracking-wider text-[#081526]">Network Status Distribution & Client Breakdown</h2>
+                    </div>
+
+                    <div class="grid grid-cols-12 gap-4">
+                        <div class="col-span-5 border border-orange-200 bg-[#fffaf5] rounded-xl p-3.5 flex items-center space-x-4">
+                            <div class="relative w-24 h-24 shrink-0">
+                                <svg viewBox="0 0 36 36" class="w-24 h-24 -rotate-90">
+                                    <circle cx="18" cy="18" r="14" fill="transparent" stroke="#e2e8f0" stroke-width="5"></circle>
+                                    <circle id="pieOffline" cx="18" cy="18" r="14" fill="transparent" stroke="#f97316" stroke-width="5" stroke-dasharray="0 100" stroke-dashoffset="0"></circle>
+                                    <circle id="pieLagging" cx="18" cy="18" r="14" fill="transparent" stroke="#eab308" stroke-width="5" stroke-dasharray="0 100" stroke-dashoffset="0"></circle>
+                                    <circle id="pieWarehouse" cx="18" cy="18" r="14" fill="transparent" stroke="#6c2bd9" stroke-width="5" stroke-dasharray="0 100" stroke-dashoffset="0"></circle>
+                                </svg>
+                                <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                                    <span id="pieTotalNum" class="text-lg font-extrabold text-[#081526] leading-none">0</span>
+                                    <span class="text-[7px] font-bold text-slate-500 uppercase mt-0.5">UNITS LISTED</span>
+                                </div>
+                            </div>
+                            <div class="space-y-1.5 text-[11px] w-full">
+                                <div class="flex justify-between items-center">
+                                    <span class="flex items-center space-x-1.5 font-semibold text-slate-700"><span class="w-2.5 h-2.5 rounded-full bg-[#f97316] inline-block"></span><span>Offline</span></span>
+                                    <span id="legOffline" class="font-extrabold text-[#f97316]">0</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="flex items-center space-x-1.5 font-semibold text-slate-700"><span class="w-2.5 h-2.5 rounded-full bg-[#eab308] inline-block"></span><span>Lagging</span></span>
+                                    <span id="legLagging" class="font-extrabold text-amber-600">0</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="flex items-center space-x-1.5 font-semibold text-slate-700"><span class="w-2.5 h-2.5 rounded-full bg-[#6c2bd9] inline-block"></span><span>Warehouse</span></span>
+                                    <span id="legWarehouse" class="font-extrabold text-purple-800">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-span-7 border border-orange-200 bg-[#fffaf5] rounded-xl p-3.5">
+                            <p class="text-[9px] font-extrabold text-[#9a3412] uppercase tracking-wider mb-2">REPORTED UNITS BY CLIENT / SITE</p>
+                            <div id="clientBreakdownList" class="space-y-1.5 text-xs">
+                                <p class="text-slate-400 italic text-[11px]">No units added yet.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <div class="flex items-center space-x-2 mb-3">
+                        <span class="bg-[#081526] text-white text-[10px] font-bold px-2 py-0.5 rounded">02</span>
+                        <h2 class="text-xs font-extrabold uppercase tracking-wider text-[#081526]">Detailed Unit Status, Observation & Action Log</h2>
+                    </div>
+
+                    <div id="prevCardsContainer" class="space-y-3.5">
+                        <div class="border border-slate-200 rounded-xl p-4 text-center text-xs text-slate-400 italic bg-slate-50">
+                            No offline or lagging units reported. All systems operating normally.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-6 avoid-break">
+                    <div class="flex items-center space-x-2 mb-2.5">
+                        <span class="bg-[#081526] text-white text-[10px] font-bold px-2 py-0.5 rounded">03</span>
+                        <h2 class="text-xs font-extrabold uppercase tracking-wider text-[#081526]">Overall MSU / MST Status Summary</h2>
+                    </div>
+
+                    <div class="border border-orange-200 rounded-xl overflow-hidden bg-[#fffaf5]">
+                        <table class="w-full text-left text-[11px]">
+                            <thead>
+                                <tr class="border-b border-orange-200 text-[#9a3412] font-extrabold uppercase text-[9px]">
+                                    <th class="p-2.5">UNIT</th>
+                                    <th class="p-2.5">CLIENT</th>
+                                    <th class="p-2.5">OFFLINE / ISSUE SINCE</th>
+                                    <th class="p-2.5">DOWNTIME</th>
+                                    <th class="p-2.5">DURATION</th>
+                                    <th class="p-2.5">NOTIFICATION</th>
+                                </tr>
+                            </thead>
+                            <tbody id="overallSummaryTableBody" class="divide-y divide-dashed divide-orange-200">
+                                <tr>
+                                    <td colspan="6" class="p-3 text-center text-slate-400 italic">No active outages logged.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-12 gap-4 mb-6 avoid-break">
+                    <div class="col-span-5">
+                        <div class="flex items-center space-x-2 mb-1.5">
+                            <span class="bg-[#081526] text-white text-[10px] font-bold px-2 py-0.5 rounded">04</span>
+                            <h2 class="text-[11px] font-extrabold uppercase tracking-wider text-[#081526]">Warehouse Units</h2>
+                        </div>
+                        <div id="prevWarehouseList" class="bg-slate-50 border border-slate-200 p-2.5 rounded-lg flex flex-wrap gap-1.5 text-xs text-slate-500 min-h-[60px]">
+                            None listed.
+                        </div>
+                    </div>
+
+                    <div class="col-span-7">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <div class="flex items-center space-x-2">
+                                <span class="bg-[#081526] text-white text-[10px] font-bold px-2 py-0.5 rounded">05</span>
+                                <h2 class="text-[11px] font-extrabold uppercase tracking-wider text-[#081526]">General Security Update</h2>
+                            </div>
+                            <span id="prevSecurityBadge" class="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[9px] font-bold px-2 py-0.5 rounded-full">
+                                ALL NORMAL
+                            </span>
+                        </div>
+                        <div id="prevGeneralBox" class="text-[11px] text-slate-700 leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-200 min-h-[60px]">
+                            All remaining active MST/MSU units are online and operating normally. No suspicious activity or security breaches observed across monitored sites during this period.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border-t-2 border-slate-200 pt-2.5 flex justify-between items-center text-[10px] text-slate-600 mt-auto">
+                    <p id="prevFooterSup" class="font-bold text-[#081526]">Verified By: Supervisor</p>
+                    <p class="font-semibold">YTE — Your Tech Eye • Control Room Operations</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    (function() {
+        var unitCounter = 0;
+
+        function byId(id) {
+            return document.getElementById(id);
+        }
+
+        function setNowDateTime() {
+            var dtInput = byId('reportDateTime');
+            if (!dtInput) return;
+            var now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            dtInput.value = now.toISOString().slice(0, 16);
+        }
+
+        function refreshKeyBadge() {
+            var k = localStorage.getItem('yte_gemini_key');
+            var badge = byId('apiStatusText');
+            if (badge && k && k.trim().length > 10) {
+                badge.textContent = 'AI Key Active';
+                badge.classList.add('text-emerald-400');
+            }
+        }
+
+        function openApiModal() {
+            var modal = byId('apiModal');
+            var inp = byId('apiKeyInput');
+            if (inp) inp.value = localStorage.getItem('yte_gemini_key') || '';
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeApiModal() {
+            var modal = byId('apiModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function saveApiKey() {
+            var inp = byId('apiKeyInput');
+            var key = inp ? inp.value.trim() : '';
+            if (key) {
+                localStorage.setItem('yte_gemini_key', key);
+                refreshKeyBadge();
+                showFeedback('Gemini API Key saved successfully.', false);
+            }
+            closeApiModal();
+        }
+
+        function createUnitCard() {
+            unitCounter++;
+            var container = byId('unitsContainer');
+            if (!container) return;
+
+            var idx = unitCounter;
+            var card = document.createElement('div');
+            card.className = 'unit-card bg-slate-50 p-3.5 rounded-xl border border-slate-300 space-y-2.5';
+            card.setAttribute('data-unit-idx', String(idx));
+
+            card.innerHTML =
+                '<div class="flex justify-between items-center border-b border-slate-200 pb-1.5">' +
+                    '<span class="text-xs font-extrabold text-[#081526]">Unit Entry #' + idx + '</span>' +
+                    '<button type="button" class="remove-unit-btn text-red-600 hover:text-red-800 text-[11px] font-bold cursor-pointer">Remove</button>' +
+                '</div>' +
+                '<div class="grid grid-cols-3 gap-2">' +
+                    '<div>' +
+                        '<label class="block text-[10px] font-bold text-slate-600">Unit ID</label>' +
+                        '<input type="text" placeholder="MSU-51" class="u-id border border-slate-300 rounded p-1.5 text-xs w-full">' +
+                    '</div>' +
+                    '<div>' +
+                        '<label class="block text-[10px] font-bold text-slate-600">Client / Site</label>' +
+                        '<input type="text" placeholder="AMB Patrol" class="u-client border border-slate-300 rounded p-1.5 text-xs w-full">' +
+                    '</div>' +
+                    '<div>' +
+                        '<label class="block text-[10px] font-bold text-slate-600">Unit State</label>' +
+                        '<select class="u-state border border-slate-300 rounded p-1.5 text-xs w-full font-bold">' +
+                            '<option value="OFFLINE">OFFLINE</option>' +
+                            '<option value="LAGGING">LAGGING / ISSUE</option>' +
+                            '<option value="ONLINE">ONLINE (RESTORED)</option>' +
+                        '</select>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="grid grid-cols-3 gap-2">' +
+                    '<div>' +
+                        '<label class="block text-[10px] font-bold text-slate-600">Online Cams</label>' +
+                        '<input type="number" min="0" value="0" class="u-cam-on border border-slate-300 rounded p-1.5 text-xs w-full">' +
+                    '</div>' +
+                    '<div>' +
+                        '<label class="block text-[10px] font-bold text-slate-600">Offline Cams</label>' +
+                        '<input type="number" min="0" value="4" class="u-cam-off border border-slate-300 rounded p-1.5 text-xs w-full">' +
+                    '</div>' +
+                    '<div>' +
+                        '<label class="block text-[10px] font-bold text-slate-600">Offline / Issue Since</label>' +
+                        '<input type="datetime-local" class="u-since border border-slate-300 rounded p-1.5 text-xs w-full">' +
+                    '</div>' +
+                '</div>' +
+                '<div class="grid grid-cols-2 gap-2">' +
+                    '<div>' +
+                        '<label class="block text-[10px] font-bold text-slate-600">1. Current Status</label>' +
+                        '<textarea rows="2" placeholder="Write rough status (e.g., all camera off, still offline)..." class="u-curr border border-slate-300 rounded p-1.5 text-xs w-full"></textarea>' +
+                    '</div>' +
+                    '<div>' +
+                        '<label class="block text-[10px] font-bold text-slate-600">2. Observation</label>' +
+                        '<textarea rows="2" placeholder="Write rough observation (e.g., txp worker kaj korar por off hoise)..." class="u-obs border border-slate-300 rounded p-1.5 text-xs w-full"></textarea>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="grid grid-cols-2 gap-2">' +
+                    '<div>' +
+                        '<label class="block text-[10px] font-bold text-slate-600">3. Action Taken (Verification)</label>' +
+                        '<textarea rows="2" placeholder="Write rough action (e.g., pc mobile diye check korsi)..." class="u-action border border-slate-300 rounded p-1.5 text-xs w-full"></textarea>' +
+                    '</div>' +
+                    '<div>' +
+                        '<label class="block text-[10px] font-bold text-slate-600">4. Notification Status</label>' +
+                        '<select class="u-notif border border-slate-300 rounded p-1.5 text-xs w-full mb-1">' +
+                            '<option value="Rocky Notified">Rocky Notified</option>' +
+                            '<option value="Tech Team Notified">Tech Team Notified</option>' +
+                            '<option value="Thread Updated Only">Thread Updated Only</option>' +
+                            '<option value="Tech Team NOT Informed">Tech Team NOT Informed</option>' +
+                        '</select>' +
+                        '<input type="text" placeholder="Optional note (e.g., Informed at 8:15 AM)" class="u-notif-note border border-slate-300 rounded p-1 text-[11px] w-full">' +
+                    '</div>' +
+                '</div>';
+
+            container.appendChild(card);
+            updatePreview();
+        }
+
+        function showFeedback(msg, isError) {
+            var box = byId('aiFeedbackBox');
+            if (!box) return;
+            box.className = 'text-xs p-2.5 rounded-lg border ' + (isError ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-emerald-50 text-emerald-800 border-emerald-300');
+            box.textContent = msg;
+        }
+
+        function localCorporatePolisher(rawText, fieldType, state) {
+            var t = (rawText || '').trim();
+            if (!t) {
+                if (fieldType === 'curr') {
+                    if (state === 'OFFLINE') return 'The unit remains completely offline, and all connected cameras are currently inaccessible. Continuous monitoring is ongoing.';
+                    if (state === 'LAGGING') return 'The unit is experiencing intermittent video stream lagging and delayed frame transmission.';
+                    return 'The unit has been restored and all connected cameras are currently online and streaming normally.';
+                }
+                if (fieldType === 'obs') {
+                    return 'The exact root cause of the connectivity disruption has not yet been confirmed. Further technical verification is required.';
+                }
+                return 'Verified camera feeds across multiple monitoring workstations (PCs) and mobile applications; the current unit state remains unchanged.';
+            }
+
+            var replacements = [
+                [/\ball camera off\b|\ball cameras off\b|\bsob camera off\b/gi, 'all cameras remain offline'],
+                [/\bstill offline\b|\bekhono off\b|\bekhono offline\b/gi, 'the unit remains offline'],
+                [/\bpc mobile diye check korsi\b|\bcheck korsi\b|\bchecked pc mobile\b/gi, 'verified camera streams across multiple monitoring PCs and mobile applications'],
+                [/\btxp worker kaj korar por off hoise\b/gi, 'the unit went offline following on-site maintenance activity by TXP personnel'],
+                [/\bworker kaj korar por\b/gi, 'following on-site technical work'],
+                [/\bpower nai\b|\bpower off\b|\bbattery low\b/gi, 'a suspected power supply or battery depletion issue was observed'],
+                [/\bnetwork issue\b|\bnet problem\b/gi, 'intermittent cellular network instability was observed'],
+                [/\bi\b/g, 'I']
+            ];
+
+            var polished = t;
+            for (var r = 0; r < replacements.length; r++) {
+                polished = polished.replace(replacements[r][0], replacements[r][1]);
+            }
+            polished = polished.replace(/\s+/g, ' ').trim();
+            polished = polished.charAt(0).toUpperCase() + polished.slice(1);
+            if (!/[.!?]$/.test(polished)) polished += '.';
+            return polished;
+        }
+
+        function extractTextFromGemini(data) {
+            if (!data) return null;
+            if (typeof data === 'string') return data;
+            if (Array.isArray(data.outputs)) {
+                for (var i = data.outputs.length - 1; i >= 0; i--) {
+                    var out = data.outputs[i];
+                    if (out && typeof out.text === 'string') return out.text;
+                    if (out && Array.isArray(out.content)) {
+                        for (var j = 0; j < out.content.length; j++) {
+                            if (out.content[j] && typeof out.content[j].text === 'string') return out.content[j].text;
+                        }
+                    }
+                }
+            }
+            if (data.candidates && data.candidates[0] && data.candidates[0].content && Array.isArray(data.candidates[0].content.parts)) {
+                var parts = data.candidates[0].content.parts;
+                for (var k = 0; k < parts.length; k++) {
+                    if (parts[k] && typeof parts[k].text === 'string') return parts[k].text;
+                }
+            }
+            return null;
+        }
+
+        function parseJsonSafe(raw) {
+            if (!raw) return null;
+            var cleaned = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
+            var match = cleaned.match(/\{[\s\S]*\}/);
+            if (!match) return null;
+            try {
+                return JSON.parse(match[0]);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        async function runAIFormatting() {
+            var btn = byId('aiBtn');
+            var cards = document.querySelectorAll('.unit-card');
+            var genInput = byId('generalSummary');
+            var apiKey = (localStorage.getItem('yte_gemini_key') || '').trim();
+
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Correcting English & Corporate Grammar...';
+            }
+
+            if (!apiKey) {
+                cards.forEach(function(c) {
+                    var st = c.querySelector('.u-state').value;
+                    c.querySelector('.u-curr').value = localCorporatePolisher(c.querySelector('.u-curr').value, 'curr', st);
+                    c.querySelector('.u-obs').value = localCorporatePolisher(c.querySelector('.u-obs').value, 'obs', st);
+                    c.querySelector('.u-action').value = localCorporatePolisher(c.querySelector('.u-action').value, 'action', st);
+                });
+                if (genInput) genInput.value = localCorporatePolisher(genInput.value, 'gen', 'NORMAL');
+                updatePreview();
+                showFeedback('No Gemini API Key set. Applied built-in corporate English grammar formatting. Click "Set AI Key" at top-right for live Gemini AI.', true);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'AI Grammar & English Sentence Correction';
+                }
+                return;
+            }
+
+            var unitsPayload = [];
+            cards.forEach(function(c, idx) {
+                unitsPayload.push({
+                    i: idx,
+                    st: c.querySelector('.u-state').value,
+                    c: c.querySelector('.u-curr').value,
+                    o: c.querySelector('.u-obs').value,
+                    a: c.querySelector('.u-action').value
+                });
+            });
+
+            var lineBreak = String.fromCharCode(10);
+            var prompt =
+                'You are an executive remote surveillance operations editor. Rewrite and fix grammar for the following shift handover notes (which may contain Bangla, Banglish, or rough English) into formal, concise corporate English. Keep all technical facts exact. If a field is empty, provide standard professional phrasing matching the unit state.' +
+                lineBreak +
+                'Input JSON: ' + JSON.stringify({ u: unitsPayload, g: genInput ? genInput.value : '' }) +
+                lineBreak +
+                'Return ONLY valid JSON with exact keys: {"u":[{"i":0,"c":"...","o":"...","a":"..."}],"g":"..."}';
+
+          var endpoints = [
+            {
+                name: 'Gemini 3.8 Flash (Interactions)',
+                url: 'https://generativelanguage.googleapis.com/v1beta/interactions',
+                headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+                body: { model: 'gemini-3.8-flash', input: prompt }
+            }
+        ];
+
+            var appliedLive = false;
+            var lastError = '';
+
+            for (var e = 0; e < endpoints.length; e++) {
+                var ep = endpoints[e];
+                try {
+                    var controller = new AbortController();
+                    var timer = setTimeout(function() { controller.abort(); }, 20000);
+
+                    var response = await fetch(ep.url, {
+                        method: 'POST',
+                        headers: ep.headers,
+                        body: JSON.stringify(ep.body),
+                        signal: controller.signal
+                    });
+                    clearTimeout(timer);
+
+                    var rawBody = await response.text();
+                    var data = null;
+                    try { data = JSON.parse(rawBody); } catch (parseErr) {}
+
+                    if (!response.ok || (data && data.error)) {
+                        lastError = (data && data.error && data.error.message) ? data.error.message : ('HTTP ' + response.status);
+                        continue;
+                    }
+
+                    var textOut = extractTextFromGemini(data);
+                    var parsed = parseJsonSafe(textOut);
+                    if (!parsed) {
+                        lastError = 'Invalid JSON structure from ' + ep.name;
+                        continue;
+                    }
+
+                    if (Array.isArray(parsed.u)) {
+                        parsed.u.forEach(function(item) {
+                            var targetCard = cards[item.i];
+                            if (targetCard) {
+                                if (item.c) targetCard.querySelector('.u-curr').value = item.c;
+                                if (item.o) targetCard.querySelector('.u-obs').value = item.o;
+                                if (item.a) targetCard.querySelector('.u-action').value = item.a;
+                            }
+                        });
+                    }
+                    if (parsed.g && genInput) {
+                        genInput.value = parsed.g;
+                    }
+
+                    appliedLive = true;
+                    showFeedback('Live Gemini AI (' + ep.name + ') corrected grammar and standardized all sentences.', false);
+                    break;
+                } catch (err) {
+                    lastError = (err && err.name === 'AbortError') ? 'Request timed out (20s)' : (err && err.message ? err.message : 'Network error');
+                }
+            }
+
+            if (!appliedLive) {
+                cards.forEach(function(c) {
+                    var st = c.querySelector('.u-state').value;
+                    c.querySelector('.u-curr').value = localCorporatePolisher(c.querySelector('.u-curr').value, 'curr', st);
+                    c.querySelector('.u-obs').value = localCorporatePolisher(c.querySelector('.u-obs').value, 'obs', st);
+                    c.querySelector('.u-action').value = localCorporatePolisher(c.querySelector('.u-action').value, 'action', st);
+                });
+                if (genInput) genInput.value = localCorporatePolisher(genInput.value, 'gen', 'NORMAL');
+                showFeedback('Live API Notice (' + lastError + '). Applied offline corporate English grammar formatting automatically.', true);
+            }
+
+            updatePreview();
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'AI Grammar & English Sentence Correction';
+            }
+        }
+
+        function calculateDuration(sinceStr, reportStr) {
+            if (!sinceStr || !reportStr) return { text: 'Pending', mins: 0, over24: false };
+            var diffMs = new Date(reportStr) - new Date(sinceStr);
+            if (isNaN(diffMs) || diffMs <= 0) return { text: '0h 0m', mins: 0, over24: false };
+            var totalMins = Math.floor(diffMs / 60000);
+            var hrs = Math.floor(totalMins / 60);
+            return { text: hrs + 'h ' + (totalMins % 60) + 'm', mins: totalMins, over24: hrs >= 24 };
+        }
+
+        function formatDateNice(dtStr) {
+            if (!dtStr) return 'Not specified';
+            var d = new Date(dtStr);
+            if (isNaN(d.getTime())) return 'Not specified';
+            return d.toLocaleDateString('en-US', { month: 'long', day: '2-digit' }) + ', ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function updatePreview() {
+            var heading = (byId('customHeading') && byId('customHeading').value) || 'SHIFT HANDOVER REPORT';
+            var purpose = (byId('reportPurpose') && byId('reportPurpose').value) || 'SHIFT HANDOVER REPORT';
+            if (byId('prevMainHeading')) byId('prevMainHeading').textContent = heading;
+            if (byId('prevBadgeType')) byId('prevBadgeType').textContent = purpose.indexOf('HANDOVER') !== -1 ? 'Shift Handover' : 'Regular Update';
+            if (byId('prevShift') && byId('shiftType')) byId('prevShift').textContent = byId('shiftType').value;
+
+            var repDt = byId('reportDateTime') ? byId('reportDateTime').value : '';
+            if (repDt && byId('prevDate')) {
+                var parsedRep = new Date(repDt);
+                if (!isNaN(parsedRep.getTime())) {
+                    byId('prevDate').textContent = parsedRep.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+                }
+            }
+            if (byId('prevMeta')) byId('prevMeta').textContent = 'For: ' + ((byId('preparedFor') && byId('preparedFor').value) || 'Operations');
+            if (byId('prevFooterSup')) byId('prevFooterSup').textContent = 'Verified By: ' + ((byId('preparedBy') && byId('preparedBy').value) || 'Shift Supervisor');
+
+            var cards = document.querySelectorAll('.unit-card');
+            var container = byId('prevCardsContainer');
+            var summaryTbody = byId('overallSummaryTableBody');
+            var clientBox = byId('clientBreakdownList');
+            if (!container || !summaryTbody || !clientBox) return;
+
+            container.innerHTML = '';
+            summaryTbody.innerHTML = '';
+            clientBox.innerHTML = '';
+
+            var offlineCount = 0;
+            var laggingCount = 0;
+            var maxMins = 0;
+            var maxDurationStr = '0h 0m';
+            var cardIndex = 0;
+            var clientMap = {};
+
+            cards.forEach(function(card) {
+                var id = card.querySelector('.u-id').value.trim();
+                var client = card.querySelector('.u-client').value.trim();
+                var state = card.querySelector('.u-state').value;
+                var camOn = card.querySelector('.u-cam-on').value || 0;
+                var camOff = card.querySelector('.u-cam-off').value || 0;
+                var since = card.querySelector('.u-since').value;
+                var notif = card.querySelector('.u-notif').value;
+                var notifNote = card.querySelector('.u-notif-note').value.trim();
+                var currTxt = card.querySelector('.u-curr').value.trim();
+                var obsTxt = card.querySelector('.u-obs').value.trim();
+                var actionTxt = card.querySelector('.u-action').value.trim();
+
+                if (id || client || currTxt || obsTxt || actionTxt) {
+                    cardIndex++;
+                    if (state === 'OFFLINE') offlineCount++;
+                    if (state === 'LAGGING') laggingCount++;
+
+                    var cName = client || 'Unassigned Site';
+                    if (!clientMap[cName]) clientMap[cName] = [];
+                    clientMap[cName].push(id || ('Unit-' + cardIndex));
+
+                    var dur = calculateDuration(since, repDt);
+                    if (dur.mins > maxMins) {
+                        maxMins = dur.mins;
+                        maxDurationStr = dur.text;
+                    }
+
+                    var dispCurr = currTxt || (state === 'OFFLINE' ? 'The unit remains offline. All cameras are unavailable.' : 'Experiencing intermittent video stream lagging.');
+                    var dispObs = obsTxt || 'The exact cause of the issue has not been confirmed. Investigation ongoing.';
+                    var dispAct = actionTxt || 'Checked camera connectivity across multiple PCs and mobile phones.';
+
+                    var stateColors = state === 'OFFLINE'
+                        ? { border: 'border-orange-200', bg: 'bg-[#fffaf5]', badgeBg: 'bg-orange-100 text-orange-800', numBg: 'bg-[#f97316]', durColor: 'text-[#7c2d12]' }
+                        : (state === 'LAGGING'
+                            ? { border: 'border-amber-300', bg: 'bg-amber-50/40', badgeBg: 'bg-amber-100 text-amber-800', numBg: 'bg-amber-600', durColor: 'text-amber-900' }
+                            : { border: 'border-emerald-200', bg: 'bg-emerald-50/30', badgeBg: 'bg-emerald-100 text-emerald-800', numBg: 'bg-emerald-600', durColor: 'text-emerald-800' });
+
+                    var fullNotif = notifNote ? (notif + ' (' + notifNote + ')') : notif;
+
+                    var cardEl = document.createElement('div');
+                    cardEl.className = 'unit-report-card border ' + stateColors.border + ' ' + stateColors.bg + ' rounded-xl p-4 shadow-xs';
+                    cardEl.innerHTML =
+                        '<div class="flex justify-between items-start border-b ' + stateColors.border + ' pb-2.5 mb-3">' +
+                            '<div class="flex items-center space-x-3">' +
+                                '<span class="' + stateColors.numBg + ' text-white font-extrabold text-xs w-6 h-6 rounded-md flex items-center justify-center">' + cardIndex + '</span>' +
+                                '<div>' +
+                                    '<div class="flex items-center space-x-2">' +
+                                        '<h3 class="text-base font-extrabold text-[#081526]">' + (id || 'UNIT-ID') + '</h3>' +
+                                        '<span class="' + stateColors.badgeBg + ' text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">' + state + '</span>' +
+                                        '<span class="bg-white border border-slate-300 text-slate-700 text-[9px] font-bold px-2 py-0.5 rounded-full">' +
+                                            'Cams: <span class="text-emerald-600">' + camOn + ' Online</span> / <span class="text-red-600">' + camOff + ' Offline</span>' +
+                                        '</span>' +
+                                    '</div>' +
+                                    '<p class="text-xs font-semibold text-slate-600 mt-0.5">' + cName + '</p>' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="text-right">' +
+                                '<p class="text-lg font-extrabold ' + stateColors.durColor + ' leading-none">' + dur.text + '</p>' +
+                                '<p class="text-[10px] font-bold text-slate-700 mt-1">Since: ' + formatDateNice(since) + '</p>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="grid grid-cols-4 gap-3">' +
+                            '<div>' +
+                                '<p class="text-[9px] font-extrabold text-[#9a3412] uppercase tracking-wider mb-0.5">CURRENT STATUS</p>' +
+                                '<p class="text-[11px] text-slate-800 leading-snug">' + dispCurr + '</p>' +
+                            '</div>' +
+                            '<div>' +
+                                '<p class="text-[9px] font-extrabold text-[#9a3412] uppercase tracking-wider mb-0.5">OBSERVATION</p>' +
+                                '<p class="text-[11px] text-slate-800 leading-snug">' + dispObs + '</p>' +
+                            '</div>' +
+                            '<div>' +
+                                '<p class="text-[9px] font-extrabold text-[#9a3412] uppercase tracking-wider mb-0.5">ACTION TAKEN</p>' +
+                                '<p class="text-[11px] text-slate-800 leading-snug">' + dispAct + '</p>' +
+                            '</div>' +
+                            '<div>' +
+                                '<p class="text-[9px] font-extrabold text-[#9a3412] uppercase tracking-wider mb-0.5">NOTIFICATION</p>' +
+                                '<p class="text-[11px] font-bold ' + (notif.indexOf('NOT') !== -1 ? 'text-red-600' : 'text-slate-900') + ' leading-snug">' + fullNotif + '</p>' +
+                            '</div>' +
+                        '</div>';
+                    container.appendChild(cardEl);
+
+                    var tr = document.createElement('tr');
+                    tr.innerHTML =
+                        '<td class="p-2.5 font-extrabold text-[#081526]">' + (id || 'N/A') + '</td>' +
+                        '<td class="p-2.5 font-medium text-slate-700">' + cName + '</td>' +
+                        '<td class="p-2.5 text-slate-700">' + formatDateNice(since) + '</td>' +
+                        '<td class="p-2.5 font-extrabold text-[#7c2d12]">' + dur.text + '</td>' +
+                        '<td class="p-2.5 text-slate-600">' + (dur.over24 ? 'Over 24 hrs' : 'Under 24 hrs') + '</td>' +
+                        '<td class="p-2.5 font-bold ' + (notif.indexOf('NOT') !== -1 ? 'text-[#f97316]' : 'text-slate-800') + '">' + notif + '</td>';
+                    summaryTbody.appendChild(tr);
+                }
+            });
+
+            if (cardIndex === 0) {
+                container.innerHTML = '<div class="border border-slate-200 rounded-xl p-4 text-center text-xs text-slate-400 italic bg-slate-50">No offline or lagging units reported. All systems operating normally.</div>';
+                summaryTbody.innerHTML = '<tr><td colspan="6" class="p-3 text-center text-slate-400 italic">No active outages logged.</td></tr>';
+            }
+
+            var clientKeys = Object.keys(clientMap);
+            if (clientKeys.length > 0) {
+                clientBox.innerHTML = clientKeys.map(function(c) {
+                    return '<div class="flex justify-between items-center border-b border-dashed border-orange-200 pb-1 last:border-0"><span class="flex items-center space-x-1.5 font-bold text-[#081526]"><span class="w-2 h-2 rounded-full bg-[#f97316]"></span><span>' + c + '</span></span><div class="flex items-center space-x-2"><span class="bg-orange-100 text-[#9a3412] font-bold text-[10px] px-2 py-0.5 rounded-full">' + clientMap[c].join(', ') + '</span><span class="font-extrabold text-[#f97316]">' + clientMap[c].length + '</span></div></div>';
+                }).join('');
+            } else {
+                clientBox.innerHTML = '<p class="text-slate-400 italic text-[11px]">No units reported.</p>';
+            }
+
+            var whRaw = byId('warehouseUnits') ? byId('warehouseUnits').value.trim() : '';
+            var whContainer = byId('prevWarehouseList');
+            var whCount = 0;
+            if (whRaw && whContainer) {
+                var items = whRaw.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+                whCount = items.length;
+                whContainer.innerHTML = items.map(function(item) {
+                    return '<span class="bg-white border border-slate-300 text-[#081526] font-bold px-2 py-0.5 rounded text-[11px]">' + item + '</span>';
+                }).join('');
+            } else if (whContainer) {
+                whContainer.innerHTML = '<span class="italic text-slate-400 text-[11px]">None listed.</span>';
+            }
+
+            var totalPie = offlineCount + laggingCount + whCount;
+            var circ = 88;
+            if (byId('pieTotalNum')) byId('pieTotalNum').textContent = totalPie;
+            if (byId('legOffline')) byId('legOffline').textContent = offlineCount;
+            if (byId('legLagging')) byId('legLagging').textContent = laggingCount;
+            if (byId('legWarehouse')) byId('legWarehouse').textContent = whCount;
+
+            if (totalPie > 0) {
+                var offLen = (offlineCount / totalPie) * circ;
+                var lagLen = (laggingCount / totalPie) * circ;
+                var whLen = (whCount / totalPie) * circ;
+
+                var pOff = byId('pieOffline');
+                var pLag = byId('pieLagging');
+                var pWh = byId('pieWarehouse');
+
+                pOff.setAttribute('stroke-dasharray', offLen + ' ' + circ);
+                pOff.setAttribute('stroke-dashoffset', '0');
+
+                pLag.setAttribute('stroke-dasharray', lagLen + ' ' + circ);
+                pLag.setAttribute('stroke-dashoffset', (-offLen).toString());
+
+                pWh.setAttribute('stroke-dasharray', whLen + ' ' + circ);
+                pWh.setAttribute('stroke-dashoffset', (-(offLen + lagLen)).toString());
+            } else {
+                ['pieOffline', 'pieLagging', 'pieWarehouse'].forEach(function(id) {
+                    if (byId(id)) byId(id).setAttribute('stroke-dasharray', '0 ' + circ);
+                });
+            }
+
+            var secStatus = byId('securityStatus') ? byId('securityStatus').value : 'NORMAL';
+            var secBadge = byId('prevSecurityBadge');
+            var genBox = byId('prevGeneralBox');
+            if (genBox && byId('generalSummary')) genBox.textContent = byId('generalSummary').value;
+
+            if (secBadge && genBox) {
+                if (secStatus === 'NORMAL') {
+                    secBadge.className = 'bg-emerald-100 text-emerald-800 border border-emerald-300 text-[9px] font-bold px-2 py-0.5 rounded-full';
+                    secBadge.textContent = 'ALL NORMAL';
+                    genBox.className = 'text-[11px] text-slate-700 leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-200 min-h-[60px]';
+                } else {
+                    secBadge.className = 'bg-red-100 text-red-800 border border-red-300 text-[9px] font-bold px-2 py-0.5 rounded-full';
+                    secBadge.textContent = 'ALERT';
+                    genBox.className = 'text-[11px] text-red-900 font-medium leading-relaxed bg-red-50 p-2.5 rounded-lg border border-red-300 min-h-[60px]';
+                }
+            }
+
+            if (byId('kpiOfflineCount')) byId('kpiOfflineCount').textContent = String(offlineCount).padStart(2, '0');
+            if (byId('kpiLaggingCount')) byId('kpiLaggingCount').textContent = String(laggingCount).padStart(2, '0');
+            if (byId('kpiWarehouseCount')) byId('kpiWarehouseCount').textContent = String(whCount).padStart(2, '0');
+            if (byId('kpiLongestOutage')) byId('kpiLongestOutage').textContent = maxDurationStr;
+        }
+
+        function exportPDF() {
+            var repDt = (byId('reportDateTime') && byId('reportDateTime').value) ? byId('reportDateTime').value.split('T')[0] : 'Report';
+            var purposeSlug = (byId('reportPurpose') && byId('reportPurpose').value.indexOf('HANDOVER') !== -1) ? 'Shift_Handover' : 'Status_Update';
+            var originalTitle = document.title;
+            document.title = 'YTE_' + purposeSlug + '_' + repDt;
+            window.focus();
+            window.print();
+            setTimeout(function() { document.title = originalTitle; }, 1000);
+        }
+
+        function bindAllEvents() {
+            if (byId('openApiBtn')) byId('openApiBtn').addEventListener('click', openApiModal);
+            if (byId('cancelApiBtn')) byId('cancelApiBtn').addEventListener('click', closeApiModal);
+            if (byId('saveApiBtn')) byId('saveApiBtn').addEventListener('click', saveApiKey);
+
+            if (byId('addUnitBtn')) {
+                byId('addUnitBtn').addEventListener('click', function(e) {
+                    e.preventDefault();
+                    createUnitCard();
+                });
+            }
+
+            if (byId('unitsContainer')) {
+                byId('unitsContainer').addEventListener('click', function(e) {
+                    if (e.target && e.target.classList.contains('remove-unit-btn')) {
+                        var card = e.target.closest('.unit-card');
+                        if (card) card.remove();
+                        updatePreview();
+                    }
+                });
+                byId('unitsContainer').addEventListener('input', updatePreview);
+                byId('unitsContainer').addEventListener('change', updatePreview);
+            }
+
+            if (byId('reportPurpose')) {
+                byId('reportPurpose').addEventListener('change', function() {
+                    if (byId('customHeading')) byId('customHeading').value = this.value;
+                    updatePreview();
+                });
+            }
+
+            if (byId('securityStatus')) {
+                byId('securityStatus').addEventListener('change', function() {
+                    var box = byId('generalSummary');
+                    if (!box) return;
+                    if (this.value === 'NORMAL') {
+                        box.value = 'All remaining active MST/MSU units are online and operating normally. No suspicious activity or security breaches observed across monitored sites during this period. Continuous live monitoring is ongoing.';
+                    } else {
+                        box.value = 'ALERT: Suspicious activity observed at [Site Name / Unit ID] at [Time]. Immediate deterrence protocol initiated and client/authorities notified accordingly. All other units remain under active surveillance.';
+                    }
+                    updatePreview();
+                });
+            }
+
+            ['customHeading', 'preparedBy', 'preparedFor', 'warehouseUnits', 'generalSummary'].forEach(function(id) {
+                if (byId(id)) byId(id).addEventListener('input', updatePreview);
+            });
+            ['shiftType', 'reportDateTime'].forEach(function(id) {
+                if (byId(id)) byId(id).addEventListener('change', updatePreview);
+            });
+
+            if (byId('aiBtn')) {
+                byId('aiBtn').addEventListener('click', function(e) {
+                    e.preventDefault();
+                    runAIFormatting();
+                });
+            }
+
+            if (byId('approveCheck') && byId('downloadBtn')) {
+                byId('approveCheck').addEventListener('change', function() {
+                    var btn = byId('downloadBtn');
+                    btn.disabled = !this.checked;
+                    btn.className = this.checked
+                        ? 'w-full bg-[#f97316] hover:bg-orange-600 text-white font-bold py-2.5 rounded-lg text-xs transition cursor-pointer shadow-md'
+                        : 'w-full bg-slate-400 text-white font-bold py-2.5 rounded-lg text-xs transition cursor-not-allowed';
+                });
+
+                byId('downloadBtn').addEventListener('click', function(e) {
+                    e.preventDefault();
+                    exportPDF();
+                });
+            }
+        }
+
+        function initApp() {
+            setNowDateTime();
+            refreshKeyBadge();
+            bindAllEvents();
+            createUnitCard();
+            updatePreview();
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initApp);
+        } else {
+            initApp();
+        }
+    })();
+    </script>
+</body>
+</html>
